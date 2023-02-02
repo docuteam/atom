@@ -368,23 +368,28 @@ class arElasticSearchPlugin extends QubitSearchEngine
         }
     }
 
-    public function partialUpdateById(string $classname, int $id, array $data)
+    public function partialUpdateById(string $className, int $id, array $data)
     {
         if (!$this->enabled) {
             return;
         }
 
-        if (0 == strcmp($classname, "QubitUser")) {
+        if (0 == strcmp($className, "QubitUser")) {
             return;
         }
 
         $document = new \Elastica\Document($id, $data);
 
         try {
-            $this->index->getType($classname)->updateDocument($document);
-        } catch (\Elastica\Exception\NotFoundException $e) {
-            // Create document if it's not found
-            $this->update($object);
+            $this->index->getType($className)->updateDocument($document);
+        } catch (\Elastica\Exception\ResponseException $e) {
+            // Create document if no existing document exists
+            $modelPdoClassName = self::modelClassFromQubitObjectClass($className)."Pdo";
+
+            if (class_exists($modelPdoClassName)) {
+                $node = new $modelPdoClassName($id);
+                QubitSearch::getInstance()->addDocument($node->serialize(), $className);
+            }
         }
     }
 
@@ -434,7 +439,7 @@ class arElasticSearchPlugin extends QubitSearchEngine
             return;
         }
 
-        $className = 'arElasticSearch'.str_replace('Qubit', '', get_class($object));
+        $className = self::modelClassFromQubitObjectClass(get_class($object));
 
         // Pass options only to information object update
         if ($object instanceof QubitInformationObject) {
@@ -563,5 +568,17 @@ class arElasticSearchPlugin extends QubitSearchEngine
         if (!$typeCount) {
             $this->log('   None');
         }
+    }
+
+    /**
+     * Get ElasticSearch model class from Qubit class.
+     *
+     * @param string $className
+     *
+     * @return string ElasticSearch model class name
+     */
+    public static function modelClassFromQubitObjectClass($className)
+    {
+        return str_replace("Qubit", "arElasticSearch", $className);
     }
 }

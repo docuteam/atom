@@ -35,6 +35,8 @@ class propelBuildNestedSetTask extends sfBaseTask
      */
     public function execute($arguments = [], $options = [])
     {
+        sfContext::createInstance($this->configuration);
+
         $databaseManager = new sfDatabaseManager($this->configuration);
         $this->conn = $databaseManager->getDatabase('propel')->getConnection();
 
@@ -93,11 +95,6 @@ class propelBuildNestedSetTask extends sfBaseTask
             $this->conn->commit();
         }
 
-        $this->logSection(
-            'propel',
-            'Note: you will need to rebuild your search index for updates to show up properly in search results.'
-        );
-
         $this->logSection('propel', 'Done!');
     }
 
@@ -155,7 +152,9 @@ EOF;
 
         $this->conn->exec($sql);
 
-        $this->reindexLft($classname, $node['id'], $node['lft']);
+        if ($node['id'] != $classname::ROOT_ID) {
+            $this->reindexLft($classname, $node['id'], $node['lft']);
+        }
 
         return $width;
     }
