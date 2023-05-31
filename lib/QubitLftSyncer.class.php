@@ -5,10 +5,28 @@ class QubitLftSyncer
     private $parentId;
     private $limit;
 
+    protected $classes;
+
     public function __construct($parentId, $limit = 10000)
     {
         $this->parentId = $parentId;
         $this->limit = $limit;
+
+        // Set default classes
+        $this->setClasses([
+          'pdo' => QubitPdo::class,
+          'search' => QubitSearch::class,
+          'pluginquery' => arElasticSearchPluginQuery::class,
+          'term' => Elastica\Query\Term::class,
+          'bulk' => Elastica\Bulk::class,
+          'update' => Elastica\Bulk\Action\UpdateDocument::class,
+          'document' => Elastica\Document::class
+        ]);
+    }
+
+    public function setClasses(array $classes)
+    {
+      $this->classes = $classes;
     }
 
     public function sync()
@@ -41,7 +59,7 @@ class QubitLftSyncer
         }
     }
 
-    private function getChildLftChecksumForDB()
+    public function getChildLftChecksumForDB()
     {
         $sql = sprintf('SELECT lft
             FROM information_object
@@ -50,23 +68,23 @@ class QubitLftSyncer
             LIMIT %d', $this->limit);
 
         $params = [':parentId' => $this->parentId];
-        $lft = QubitPdo::fetchAll($sql, $params, ['fetchMode' => PDO::FETCH_COLUMN]);
+        $lft = $this->classes["pdo"]::fetchAll($sql, $params, ['fetchMode' => PDO::FETCH_COLUMN]);
 
         return md5(serialize($lft));
     }
 
-    private function getChildLftChecksumForElasticsearch()
+    public function getChildLftChecksumForElasticsearch()
     {
         // Initialize Elasticsearch query
-        $query = new arElasticSearchPluginQuery($this->limit);
+        $query = new $this->classes["pluginquery"]($this->limit);
 
         // Add criteria and set sort
-        $term = new \Elastica\Query\Term(['parentId' => $this->parentId]);
+        $term = new $this->classes["term"](['parentId' => $this->parentId]);
         $query->queryBool->addMust($term);
         $query->query->addSort(['lft' => 'asc']);
 
         // Get results
-        $result = QubitSearch::getInstance()
+        $result = $this->classes["search"]::getInstance()
             ->index
             ->getType('QubitInformationObject')
             ->search($query->getQuery(false, false))
@@ -82,7 +100,7 @@ class QubitLftSyncer
         return md5(serialize($lft));
     }
 
-    private function repairEsChildrenLftValues()
+    public function repairEsChildrenLftValues()
     {
         $sql = sprintf('SELECT id, lft
             FROM information_object
@@ -90,16 +108,16 @@ class QubitLftSyncer
             LIMIT %d', $this->limit);
 
         $params = [':parentId' => $this->parentId];
-        $results = QubitPdo::fetchAll($sql, $params, ['fetchMode' => PDO::FETCH_ASSOC]);
+        $results = $this->classes["pdo"]::fetchAll($sql, $params, ['fetchMode' => PDO::FETCH_ASSOC]);
 
-        $bulk = new Elastica\Bulk(QubitSearch::getInstance()->client);
-        $bulk->setIndex(QubitSearch::getInstance()->index->getName());
+        $bulk = new $this->classes["bulk"]($this->classes["search"]::getInstance()->client);
+        $bulk->setIndex($this->classes["search"]::getInstance()->index->getName());
         $bulk->setType('QubitInformationObject');
 
         foreach ($results as $row) {
             $bulk->addAction(
-                new Elastica\Bulk\Action\UpdateDocument(
-                    new Elastica\Document($row['id'], ['lft' => $row['lft']])
+                new $this->classes["update"](
+                    new $this->classes["document"]($row['id'], ['lft' => $row['lft']])
                 )
             );
         }
