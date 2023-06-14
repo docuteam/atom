@@ -15,6 +15,18 @@ used community-driven project. Learn more at:
 You are free to copy, modify, and distribute AtoM with attribution under the
 terms of the AGPLv3 license. See the [LICENSE](LICENSE) file for details.
 
+## Changes of this fork
+
+Work is done on the branch `docuteam-patches`. This branch is currently based on v2.6.4.
+
+### How to use
+If you are updating an install, run `php symfony tools:apply-sql-patches` to apply custom SQL patches.
+
+Otherwise, this can be used as is.
+
+### Patches
+- Application of https://github.com/artefactual/atom/pull/1569 to v2.6.4 and addition of custom SQL migrations
+
 ## Installation
 
 **Production installation**
