@@ -957,7 +957,7 @@ DROP TABLE IF EXISTS `property_i18n`;
 
 CREATE TABLE `property_i18n`
 (
-	`value` MEDIUM_TEXT,
+	`value` MEDIUMTEXT,
 	`id` INTEGER  NOT NULL,
 	`culture` VARCHAR(16)  NOT NULL,
 	PRIMARY KEY (`id`,`culture`),
